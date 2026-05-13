@@ -93,12 +93,15 @@ const radius = Math.max(size.x, size.y, size.z) * 0.9;
 
 controls.target.copy(center);
 setProjectionPose(camera, center, radius * 5.2);
+centerCameraOnFrame(camera, controls, frame);
 
 function resize() {
   const width = Math.max(viewport.clientWidth, 1);
   const height = Math.max(viewport.clientHeight, 1);
   const aspect = width / height;
-  const frustumHeight = radius * 3;
+  const padding = width < 640 ? 1.28 : 1.14;
+  const bounds = getProjectedFrameBounds(frame, camera);
+  const frustumHeight = Math.max(bounds.height * padding, (bounds.width * padding) / aspect);
 
   camera.left = (-frustumHeight * aspect) / 2;
   camera.right = (frustumHeight * aspect) / 2;
@@ -156,6 +159,64 @@ function setProjectionPose(
   camera.up.copy(up);
   camera.position.copy(target).addScaledVector(viewDirection, distance);
   camera.lookAt(target);
+}
+
+function centerCameraOnFrame(
+  camera: OrthographicCamera,
+  controls: OrbitControls,
+  frame: Box3,
+) {
+  camera.updateMatrixWorld(true);
+
+  const bounds = getProjectedFrameBounds(frame, camera);
+  const horizontalOffset = new Vector3();
+  const verticalOffset = new Vector3();
+
+  camera.getWorldDirection(new Vector3());
+  horizontalOffset.setFromMatrixColumn(camera.matrixWorld, 0).multiplyScalar(bounds.centerX);
+  verticalOffset.setFromMatrixColumn(camera.matrixWorld, 1).multiplyScalar(bounds.centerY);
+
+  const offset = horizontalOffset.add(verticalOffset);
+
+  camera.position.add(offset);
+  controls.target.add(offset);
+  camera.lookAt(controls.target);
+  camera.updateMatrixWorld(true);
+}
+
+function getProjectedFrameBounds(frame: Box3, camera: OrthographicCamera) {
+  camera.updateMatrixWorld(true);
+
+  const corners = [
+    new Vector3(frame.min.x, frame.min.y, frame.min.z),
+    new Vector3(frame.min.x, frame.min.y, frame.max.z),
+    new Vector3(frame.min.x, frame.max.y, frame.min.z),
+    new Vector3(frame.min.x, frame.max.y, frame.max.z),
+    new Vector3(frame.max.x, frame.min.y, frame.min.z),
+    new Vector3(frame.max.x, frame.min.y, frame.max.z),
+    new Vector3(frame.max.x, frame.max.y, frame.min.z),
+    new Vector3(frame.max.x, frame.max.y, frame.max.z),
+  ];
+
+  let minX = Number.POSITIVE_INFINITY;
+  let maxX = Number.NEGATIVE_INFINITY;
+  let minY = Number.POSITIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
+
+  for (const corner of corners) {
+    corner.applyMatrix4(camera.matrixWorldInverse);
+    minX = Math.min(minX, corner.x);
+    maxX = Math.max(maxX, corner.x);
+    minY = Math.min(minY, corner.y);
+    maxY = Math.max(maxY, corner.y);
+  }
+
+  return {
+    width: maxX - minX,
+    height: maxY - minY,
+    centerX: (minX + maxX) / 2,
+    centerY: (minY + maxY) / 2,
+  };
 }
 
 function formatAngle(radians: number): string {
