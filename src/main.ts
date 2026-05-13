@@ -11,9 +11,14 @@ import {
   Vector3,
   WebGLRenderer,
 } from "three";
+import { inject } from "@vercel/analytics";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { createModel67, modelParameters } from "./model67";
-import { Analytics } from "@vercel/analytics/next";
+
+inject({
+  framework: "vite",
+  mode: import.meta.env.DEV ? "development" : "production",
+});
 
 document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
   <main class="layout">
@@ -51,7 +56,6 @@ document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
       <div id="viewport" aria-label="Three.js rendering of the number 67"></div>
       <p class="hint">Drag to orbit • Scroll to zoom</p>
     </section>
-    <Analytics/>
   </main>
 `;
 
